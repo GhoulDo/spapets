@@ -26,14 +26,27 @@ import { Separator } from "@/components/ui/separator"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
 
+// Definición de interfaces necesarias
+interface Producto {
+  id: string
+  nombre: string
+  descripcion: string
+  precio: number
+  stock: number
+  categoria?: string
+  estado?: string
+  imagen?: string
+  disponible?: boolean
+}
+
 export default function ProductosPage() {
   const { toast } = useToast()
   const { addItem, getItemCount } = useCart()
-  const [products, setProducts] = useState([])
+  const [products, setProducts] = useState<Producto[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
-  const [selectedProduct, setSelectedProduct] = useState(null)
+  const [selectedProduct, setSelectedProduct] = useState<Producto | null>(null)
   const [openProductDetails, setOpenProductDetails] = useState(false)
 
   // Filtros
@@ -53,7 +66,7 @@ export default function ProductosPage() {
       const data = await fetchProducts()
 
       // Encontrar el precio máximo para el slider
-      const maxPrice = Math.max(...data.map((product) => product.precio), 1000)
+      const maxPrice = Math.max(...data.map((product: Producto) => product.precio), 1000)
       setPriceRange([0, maxPrice])
 
       setProducts(data)
@@ -70,11 +83,11 @@ export default function ProductosPage() {
     }
   }
 
-  const handleAddToCart = (product, quantity = 1) => {
+  const handleAddToCart = (product: Producto, quantity = 1) => {
     addItem(product, quantity)
   }
 
-  const handleViewDetails = (product) => {
+  const handleViewDetails = (product: Producto) => {
     setSelectedProduct(product)
     setOpenProductDetails(true)
   }
@@ -282,8 +295,10 @@ export default function ProductosPage() {
                 )}
                 {product.estado && (
                   <Badge
-                    className="absolute top-2 right-2"
-                    variant={product.estado === "ACTIVO" ? "success" : "secondary"}
+                    className={`absolute top-2 right-2 ${
+                      product.estado === "ACTIVO" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
+                    }`}
+                    variant="outline"
                   >
                     {product.estado}
                   </Badge>
@@ -302,7 +317,10 @@ export default function ProductosPage() {
                 </p>
                 <div className="mt-2 flex justify-between items-center">
                   <p className="font-bold text-lg">${product.precio}</p>
-                  <Badge variant={product.stock > 0 ? "outline" : "destructive"}>
+                  <Badge
+                    variant="outline"
+                    className={product.stock > 0 ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}
+                  >
                     {product.stock > 0 ? `Stock: ${product.stock}` : "Agotado"}
                   </Badge>
                 </div>
@@ -351,7 +369,14 @@ export default function ProductosPage() {
                 <div className="flex items-center gap-2 mt-1">
                   <Badge variant="outline">{selectedProduct.categoria || "Sin categoría"}</Badge>
                   {selectedProduct.estado && (
-                    <Badge variant={selectedProduct.estado === "ACTIVO" ? "success" : "secondary"}>
+                    <Badge
+                      variant="outline"
+                      className={
+                        selectedProduct.estado === "ACTIVO"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-gray-100 text-gray-800"
+                      }
+                    >
                       {selectedProduct.estado}
                     </Badge>
                   )}
@@ -374,7 +399,12 @@ export default function ProductosPage() {
                 </div>
                 <div>
                   <h4 className="text-sm font-medium mb-1">Disponibilidad</h4>
-                  <Badge variant={selectedProduct.stock > 0 ? "outline" : "destructive"}>
+                  <Badge
+                    variant="outline"
+                    className={
+                      selectedProduct.stock > 0 ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                    }
+                  >
                     {selectedProduct.stock > 0 ? `Stock: ${selectedProduct.stock}` : "Agotado"}
                   </Badge>
                 </div>

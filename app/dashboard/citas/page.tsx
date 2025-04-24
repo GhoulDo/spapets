@@ -13,15 +13,42 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
 
+// Definición de las interfaces necesarias
+interface Service {
+  id: string;
+  nombre: string;
+  descripcion?: string;
+  precio: number;
+  duracion: number;
+}
+
+interface Pet {
+  id: string;
+  nombre: string;
+  tipo: string;
+  raza: string;
+  edad: number;
+}
+
+interface Appointment {
+  id: string;
+  fecha: string;
+  hora: string;
+  estado: string;
+  mascota: Pet;
+  servicio: Service;
+  cliente?: any;
+}
+
 export default function AppointmentsPage() {
   const { toast } = useToast()
-  const [appointments, setAppointments] = useState<any[]>([])
-  const [pets, setPets] = useState([])
-  const [services, setServices] = useState([])
+  const [appointments, setAppointments] = useState<Appointment[]>([])
+  const [pets, setPets] = useState<Pet[]>([])
+  const [services, setServices] = useState<Service[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [openForm, setOpenForm] = useState(false)
-  const [editingAppointment, setEditingAppointment] = useState(null)
+  const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null)
 
   useEffect(() => {
     loadData()
@@ -103,12 +130,12 @@ export default function AppointmentsPage() {
     setOpenForm(true)
   }
 
-  const handleEditAppointment = (appointment) => {
+  const handleEditAppointment = (appointment: Appointment) => {
     setEditingAppointment(appointment)
     setOpenForm(true)
   }
 
-  const handleAppointmentSaved = (savedAppointment) => {
+  const handleAppointmentSaved = (savedAppointment: Appointment) => {
     if (editingAppointment) {
       setAppointments(appointments.map((a) => (a.id === savedAppointment.id ? savedAppointment : a)))
     } else {
@@ -124,7 +151,7 @@ export default function AppointmentsPage() {
     loadData()
   }
 
-  const handleAppointmentDeleted = (appointmentId) => {
+  const handleAppointmentDeleted = (appointmentId: string) => {
     setAppointments(appointments.filter((a) => a.id !== appointmentId))
     toast({
       title: "Éxito",

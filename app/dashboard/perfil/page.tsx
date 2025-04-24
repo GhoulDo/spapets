@@ -43,7 +43,7 @@ export default function ProfilePage() {
   const { user } = useAuth()
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
-  const [profileData, setProfileData] = useState(null)
+  const [profileData, setProfileData] = useState<any>(null)
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false)
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false)
 
@@ -70,7 +70,10 @@ export default function ProfilePage() {
     const loadProfile = async () => {
       try {
         setLoading(true)
-        const data = await getUserProfile()
+        if (!user?.id) {
+          throw new Error("El ID del usuario no está definido");
+        }
+        const data = await getUserProfile(user.id) // Pasar el ID del usuario como argumento
         setProfileData(data)
         profileForm.reset({
           username: data.username,
@@ -90,12 +93,19 @@ export default function ProfilePage() {
       }
     }
 
-    loadProfile()
-  }, [toast, profileForm])
+    if (user?.id) { // Solo cargar el perfil si el usuario está autenticado y tiene ID
+      loadProfile()
+    }
+  }, [toast, profileForm, user])
 
   const onProfileSubmit = async (values: z.infer<typeof profileSchema>) => {
     setIsUpdatingProfile(true)
     try {
+      // Verificar que el usuario esté autenticado antes de actualizar
+      if (!user || !user.id) {
+        throw new Error("Usuario no autenticado");
+      }
+      
       await updateClient(user.id, values)
       toast({
         title: "Éxito",

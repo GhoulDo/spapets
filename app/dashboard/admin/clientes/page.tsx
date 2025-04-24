@@ -77,9 +77,9 @@ export default function AdminClientsPage() {
 
     const filtered = clients.filter(
       (client) =>
-        client.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (client.telefono && client.telefono.includes(searchTerm)),
+        client.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        client.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (client.telefono && client.telefono.includes(searchTerm))
     )
     setFilteredClients(filtered)
   }

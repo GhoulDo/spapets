@@ -17,13 +17,45 @@ import { AlertCircle } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
+// Definición de interfaces necesarias
+interface Cliente {
+  id: string;
+  username: string;
+  email?: string;
+  telefono?: string;
+}
+
+interface DetalleFactura {
+  id: string;
+  productoId?: string;
+  servicioId?: string;
+  productoNombre?: string;
+  servicioNombre?: string;
+  cantidad: number;
+  precioUnitario: number;
+  subtotal: number;
+}
+
+interface Factura {
+  id: string;
+  numero: number;
+  fecha: string;
+  estado: string;
+  total: number;
+  cliente?: Cliente;
+  detalles?: DetalleFactura[];
+  metodoPago?: string;
+  direccionEntrega?: string;
+  notas?: string;
+}
+
 export default function ClientInvoicesPage() {
   const { user } = useAuth()
   const { toast } = useToast()
-  const [invoices, setInvoices] = useState([])
+  const [invoices, setInvoices] = useState<Factura[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [selectedInvoice, setSelectedInvoice] = useState(null)
+  const [selectedInvoice, setSelectedInvoice] = useState<Factura | null>(null)
   const [openDetails, setOpenDetails] = useState(false)
   const [downloadingInvoice, setDownloadingInvoice] = useState<string | null>(null)
 
@@ -65,7 +97,7 @@ export default function ClientInvoicesPage() {
     }
   }
 
-  const handleDownloadPdf = async (invoiceId) => {
+  const handleDownloadPdf = async (invoiceId: string) => {
     try {
       setDownloadingInvoice(invoiceId)
       await downloadInvoicePdf(invoiceId)
@@ -85,7 +117,7 @@ export default function ClientInvoicesPage() {
     }
   }
 
-  const handleViewDetails = (invoice) => {
+  const handleViewDetails = (invoice: Factura) => {
     setSelectedInvoice(invoice)
     setOpenDetails(true)
   }
@@ -231,7 +263,15 @@ export default function ClientInvoicesPage() {
                       <TableCell>{formatDate(invoice.fecha)}</TableCell>
                       <TableCell>{formatCurrency(invoice.total)}</TableCell>
                       <TableCell>
-                        <Badge variant={invoice.estado === "PAGADA" ? "success" : "warning"}>{invoice.estado}</Badge>
+                        <Badge 
+                          // Usar variant="outline" en lugar de "success"/"warning" que no existen
+                          variant="outline"
+                          className={invoice.estado === "PAGADA" ? 
+                            "bg-green-100 text-green-800" : 
+                            "bg-yellow-100 text-yellow-800"}
+                        >
+                          {invoice.estado}
+                        </Badge>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">

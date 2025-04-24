@@ -1,3 +1,5 @@
+"use client"
+
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { useToast } from '@/components/ui/use-toast'
 import { useAuth } from '@/context/auth-context'

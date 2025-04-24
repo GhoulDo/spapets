@@ -24,15 +24,28 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { motion } from "framer-motion"
 
+// Definir la interfaz para mascotas
+interface Pet {
+  id: string
+  nombre: string
+  tipo: string
+  raza: string
+  edad: number
+  descripcion?: string
+  cliente?: any
+  fotoUrl?: string
+  tieneFoto?: boolean
+}
+
 export default function PetsPage() {
   const { user, isAuthenticated } = useAuth()
   const { toast } = useToast()
-  const [pets, setPets] = useState([])
-  const [filteredPets, setFilteredPets] = useState([])
+  const [pets, setPets] = useState<Pet[]>([])
+  const [filteredPets, setFilteredPets] = useState<Pet[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [openForm, setOpenForm] = useState(false)
-  const [editingPet, setEditingPet] = useState(null)
+  const [editingPet, setEditingPet] = useState<Pet | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [activeTab, setActiveTab] = useState("todos")
   const [sortOrder, setSortOrder] = useState("nombre-asc")
@@ -126,12 +139,12 @@ export default function PetsPage() {
     setOpenForm(true)
   }
 
-  const handleEditPet = (pet) => {
+  const handleEditPet = (pet: Pet) => {
     setEditingPet(pet)
     setOpenForm(true)
   }
 
-  const handlePetSaved = (newPet) => {
+  const handlePetSaved = (newPet: Pet) => {
     if (editingPet) {
       setPets(pets.map((p) => (p.id === newPet.id ? newPet : p)))
     } else {
@@ -146,7 +159,7 @@ export default function PetsPage() {
     loadPets()
   }
 
-  const handlePetDeleted = (petId) => {
+  const handlePetDeleted = (petId: string) => {
     setPets(pets.filter((p) => p.id !== petId))
     setFilteredPets(filteredPets.filter((p) => p.id !== petId))
     toast({
