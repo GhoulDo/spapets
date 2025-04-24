@@ -1,0 +1,334 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 346 84% 61%; /* #FF6B6B - Coral */
+    --primary-foreground: 355.7 100% 97.3%;
+    --secondary: 174 59% 56%; /* #4ECDC4 - Turquesa */
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 42 100% 70%; /* #FFD166 - Amarillo */
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 346 84% 61%; /* #FF6B6B - Coral */
+    --radius: 1rem;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 346 70% 50%; /* Darker #FF6B6B */
+    --primary-foreground: 210 40% 98%;
+    --secondary: 174 59% 40%; /* Darker #4ECDC4 */
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 42 90% 55%; /* Darker #FFD166 */
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 346 70% 50%; /* Darker #FF6B6B */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* Estilos personalizados para la aplicación PetSPA */
+.pet-card {
+  @apply relative overflow-hidden rounded-xl transition-all duration-300 hover:shadow-lg;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+.pet-card:hover {
+  transform: translateY(-5px);
+}
+
+.pet-card::before {
+  content: "";
+  @apply absolute top-0 left-0 w-full h-1 bg-pet-gradient;
+}
+
+.pet-card.dog::before {
+  background: linear-gradient(to right, #ff6b6b, #ff9f1c);
+}
+
+.pet-card.cat::before {
+  background: linear-gradient(to right, #4ecdc4, #45b7d1);
+}
+
+.pet-card.bird::before {
+  background: linear-gradient(to right, #ffd166, #ff9f1c);
+}
+
+.pet-card.fish::before {
+  background: linear-gradient(to right, #45b7d1, #4ecdc4);
+}
+
+.pet-card.rodent::before {
+  background: linear-gradient(to right, #ff8fba, #ff6b6b);
+}
+
+/* Fondos con patrones de huellas */
+.paw-pattern-bg {
+  background-color: #f9f9f9;
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23FF6B6B' fill-opacity='0.05' fill-rule='evenodd'%3E%3Cpath d='M36 34.15c-1.2 0-2.36.47-3.22 1.3-1.78 1.73-1.78 4.5 0 6.22.86.84 2 1.3 3.22 1.3 1.2 0 2.36-.47 3.22-1.3 1.78-1.73 1.78-4.5 0-6.22-.86-.84-2-1.3-3.22-1.3zM29.5 26.5c-1.2 0-2.36.47-3.22 1.3-1.78 1.73-1.78 4.5 0 6.22.86.84 2 1.3 3.22 1.3 1.2 0 2.36-.47 3.22-1.3 1.78-1.73 1.78-4.5 0-6.22-.86-.84-2-1.3-3.22-1.3zM42.5 26.5c-1.2 0-2.36.47-3.22 1.3-1.78 1.73-1.78 4.5 0 6.22.86.84 2 1.3 3.22 1.3 1.2 0 2.36-.47 3.22-1.3 1.78-1.73 1.78-4.5 0-6.22-.86-.84-2-1.3-3.22-1.3zM24 34.15c-1.2 0-2.36.47-3.22 1.3-1.78 1.73-1.78 4.5 0 6.22.86.84 2 1.3 3.22 1.3 1.2 0 2.36-.47 3.22-1.3 1.78-1.73 1.78-4.5 0-6.22-.86-.84-2-1.3-3.22-1.3z'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* Animaciones para elementos interactivos */
+.pet-bounce {
+  animation: bounce-slow 3s ease-in-out infinite;
+}
+
+.pet-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.pet-wiggle:hover {
+  animation: wiggle 0.5s ease-in-out;
+}
+
+/* Animaciones adicionales */
+@keyframes bounce-slow {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0);
+  }
+  50% {
+    transform: translateY(-10px) rotate(2deg);
+  }
+}
+
+@keyframes wiggle {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  25% {
+    transform: rotate(5deg);
+  }
+  75% {
+    transform: rotate(-5deg);
+  }
+}
+
+@keyframes slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    height: 0;
+    opacity: 0;
+  }
+  to {
+    height: var(--radix-collapsible-content-height);
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    height: var(--radix-collapsible-content-height);
+    opacity: 1;
+  }
+  to {
+    height: 0;
+    opacity: 0;
+  }
+}
+
+.animate-slide-down {
+  animation: slide-down 0.3s ease-out;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+
+/* Estilos para el dashboard */
+.dashboard-stat-card {
+  @apply relative overflow-hidden rounded-xl bg-white p-6 transition-all duration-300 hover:shadow-lg;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+.dashboard-stat-card:hover {
+  transform: translateY(-5px);
+}
+
+.dashboard-stat-card .icon-wrapper {
+  @apply absolute right-4 top-4 rounded-full p-3 text-white;
+}
+
+/* Estilos para las pestañas */
+.custom-tabs {
+  @apply rounded-full bg-muted p-1;
+}
+
+.custom-tabs-trigger {
+  @apply rounded-full px-4 py-2 text-sm font-medium transition-all data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm;
+}
+
+/* Estilos para el calendario */
+.custom-calendar {
+  @apply rounded-xl border-none bg-white p-4 shadow-md;
+}
+
+.custom-calendar .react-calendar__tile--active {
+  @apply bg-primary text-white rounded-full;
+}
+
+.custom-calendar .react-calendar__tile--now {
+  @apply bg-accent text-accent-foreground rounded-full;
+}
+
+/* Estilos para las facturas */
+.invoice-card {
+  @apply relative overflow-hidden rounded-xl bg-white transition-all duration-300 hover:shadow-lg;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+.invoice-card:hover {
+  transform: translateY(-5px);
+}
+
+.invoice-card::before {
+  content: "";
+  @apply absolute top-0 left-0 w-full h-1 bg-pet-gradient;
+}
+
+/* Estilos para el modo oscuro */
+.dark .paw-pattern-bg {
+  background-color: #1a1a1a;
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23FF6B6B' fill-opacity='0.1' fill-rule='evenodd'%3E%3Cpath d='M36 34.15c-1.2 0-2.36.47-3.22 1.3-1.78 1.73-1.78 4.5 0 6.22.86.84 2 1.3 3.22 1.3 1.2 0 2.36-.47 3.22-1.3 1.78-1.73 1.78-4.5 0-6.22-.86-.84-2-1.3-3.22-1.3zM29.5 26.5c-1.2 0-2.36.47-3.22 1.3-1.78 1.73-1.78 4.5 0 6.22.86.84 2 1.3 3.22 1.3 1.2 0 2.36-.47 3.22-1.3 1.78-1.73 1.78-4.5 0-6.22-.86-.84-2-1.3-3.22-1.3zM42.5 26.5c-1.2 0-2.36.47-3.22 1.3-1.78 1.73-1.78 4.5 0 6.22.86.84 2 1.3 3.22 1.3 1.2 0 2.36-.47 3.22-1.3 1.78-1.73 1.78-4.5 0-6.22-.86-.84-2-1.3-3.22-1.3zM24 34.15c-1.2 0-2.36.47-3.22 1.3-1.78 1.73-1.78 4.5 0 6.22.86.84 2 1.3 3.22 1.3 1.2 0 2.36-.47 3.22-1.3 1.78-1.73 1.78-4.5 0-6.22-.86-.84-2-1.3-3.22-1.3z'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* Print styles for invoices */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .print-section,
+  .print-section * {
+    visibility: visible;
+  }
+
+  .print-section {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+}
+
+/* Añadir estas clases al final del archivo globals.css */
+
+/* Animaciones para el menú */
+@keyframes slide-down {
+  from {
+    height: 0;
+    opacity: 0;
+  }
+  to {
+    height: var(--radix-collapsible-content-height);
+    opacity: 1;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    height: var(--radix-collapsible-content-height);
+    opacity: 1;
+  }
+  to {
+    height: 0;
+    opacity: 0;
+  }
+}
+
+.animate-slide-down {
+  animation: slide-down 0.3s ease-out;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
+/* Estilos para el sidebar colapsado */
+.sidebar-collapsed .md\:ml-64 {
+  margin-left: 5rem; /* 80px */
+}
+
+/* Animación para el hover en las tarjetas de productos */
+.pet-card {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.pet-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* Animación lenta para el bounce */
+.animate-bounce-slow {
+  animation: bounce 2s infinite;
+}
+
+@keyframes bounce {
+  0%,
+  100% {
+    transform: translateY(-5%);
+    animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
+  }
+  50% {
+    transform: translateY(0);
+    animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
+  }
+}
