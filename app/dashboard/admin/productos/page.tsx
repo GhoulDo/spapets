@@ -117,17 +117,17 @@ export default function ProductsPage() {
     result.sort((a, b) => {
       switch (sortOrder) {
         case "nombre-asc":
-          return a.nombre.localeCompare(b.nombre)
+          return (a.nombre || '').localeCompare(b.nombre || '')
         case "nombre-desc":
-          return b.nombre.localeCompare(a.nombre)
+          return (b.nombre || '').localeCompare(a.nombre || '')
         case "precio-asc":
-          return a.precio - b.precio
+          return (a.precio || 0) - (b.precio || 0)
         case "precio-desc":
-          return b.precio - a.precio
+          return (b.precio || 0) - (a.precio || 0)
         case "stock-asc":
-          return a.stock - b.stock
+          return (a.stock || 0) - (b.stock || 0)
         case "stock-desc":
-          return b.stock - a.stock
+          return (b.stock || 0) - (a.stock || 0)
         default:
           return 0
       }

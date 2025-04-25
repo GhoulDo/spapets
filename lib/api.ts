@@ -331,50 +331,89 @@ export const fetchPetById = async (id: string) => {
 }
 
 // Función para crear mascota según la documentación de la API
-export const createPet = async (petData: any, photo?: File) => {
+export async function createPet(petData: any, photoFile?: File) {
   try {
-    console.log("Creando mascota con datos:", petData, "y foto:", !!photo)
-
-    // Si hay una foto, usamos FormData
-    if (photo) {
-      const formData = new FormData()
-
-      // Añadimos los datos de la mascota directamente como campos individuales
-      // en lugar de como un JSON string, para mayor compatibilidad
-      Object.entries(petData).forEach(([key, value]) => {
-        formData.append(key, value as string)
-      })
-
-      // Añadimos la foto
-      formData.append("foto", photo, photo.name)
-
-      console.log("Enviando FormData con foto:", {
-        petData,
-        hasPhoto: !!photo,
-        photoName: photo.name,
-        photoType: photo.type,
-        photoSize: photo.size,
-        formDataEntries: Array.from(formData.entries()).map(([key, value]) =>
-          key === "foto" ? `${key}: [File: ${photo.name}, ${photo.type}]` : `${key}: ${value}`,
-        ),
-      })
-
-      // Usamos el endpoint estándar con FormData
-      const response = await api.post("/mascotas", formData, {
-        headers: {
-          // No establecemos Content-Type para que axios lo configure automáticamente con el boundary correcto
-        },
-      })
-      return response.data
-    } else {
-      // Si no hay foto, enviamos JSON directamente
-      console.log("Enviando datos de mascota sin foto:", petData)
-      const response = await api.post("/mascotas", petData)
-      return response.data
+    console.log("Creando mascota con datos:", petData);
+    
+    // Si no hay foto, usamos el endpoint JSON simple
+    if (!photoFile) {
+      console.log("Creando mascota sin foto - usando JSON");
+      const response = await api.post('/mascotas', petData);
+      return response.data;
+    } 
+    
+    // Si hay foto, usamos el endpoint específico para fotos
+    console.log("Creando mascota con foto - usando FormData");
+    
+    // Preparamos los datos para el endpoint /con-foto 
+    const formData = new FormData();
+    
+    // Convertir el objeto petData a JSON string y añadirlo como parámetro "mascota"
+    const mascotaJson = JSON.stringify(petData);
+    formData.append("mascota", mascotaJson);
+    
+    // Añadir la foto como archivo
+    if (photoFile) {
+      formData.append("foto", photoFile);
     }
+    
+    // Debug para verificar el FormData
+    console.log("FormData creado:", {
+      mascota: mascotaJson,
+      fotoName: photoFile?.name,
+      formDataEntries: Array.from(formData.entries()).map(([key, val]) => 
+        `${key}: ${typeof val === 'string' ? val.substring(0, 30) + '...' : '[File]'}`
+      )
+    });
+    
+    // Usar axios directamente para tener control total sobre la petición
+    const response = await axios({
+      method: 'post',
+      url: `${API_URL}/mascotas/con-foto`,
+      data: formData,
+      headers: {
+        // NO establecer Content-Type, dejar que el navegador lo haga automáticamente
+        'Authorization': `Bearer ${localStorage.getItem("token")}`
+      }
+    });
+    
+    console.log("Respuesta de creación de mascota:", response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('Error creando mascota:', error);
+    
+    // Extraer más información de error para depuración
+    if (error.response && error.response.data) {
+      console.error('Detalles del error del servidor:', error.response.data);
+    }
+    
+    throw error;
+  }
+}
+
+export const uploadPetPhoto = async (id: string, photo: File) => {
+  try {
+    const formData = new FormData();
+    formData.append("foto", photo, photo.name);
+
+    console.log(`Subiendo foto para mascota ${id}:`, {
+      photoName: photo.name,
+      photoSize: photo.size,
+      photoType: photo.type,
+    });
+
+    // Usamos el endpoint específico para subir fotos
+    const response = await api.post(`/mascotas/${id}/foto`, formData, {
+      headers: {
+        // Importante: NO especificar Content-Type, para que el navegador lo configure automáticamente
+      },
+    });
+    
+    console.log("Foto subida correctamente");
+    return response.data;
   } catch (error) {
-    console.error("Error creando mascota:", error)
-    throw error
+    console.error(`Error subiendo foto para mascota con ID ${id}:`, error);
+    throw error;
   }
 }
 
@@ -394,31 +433,6 @@ export const deletePet = async (id: string) => {
     return response.data
   } catch (error) {
     console.error(`Error eliminando mascota con ID ${id}:`, error)
-    throw error
-  }
-}
-
-// Función para subir foto de mascota según la documentación
-export const uploadPetPhoto = async (id: string, photo: File) => {
-  try {
-    const formData = new FormData()
-    formData.append("foto", photo, photo.name)
-
-    console.log(`Subiendo foto para mascota ${id}:`, {
-      photoName: photo.name,
-      photoSize: photo.size,
-      photoType: photo.type,
-      formDataEntries: Array.from(formData.entries()).map(([key]) => key),
-    })
-
-    const response = await api.post(`/mascotas/${id}/foto`, formData, {
-      headers: {
-        // No establecemos Content-Type para que axios lo configure automáticamente
-      },
-    })
-    return response.data
-  } catch (error) {
-    console.error(`Error subiendo foto para mascota con ID ${id}:`, error)
     throw error
   }
 }

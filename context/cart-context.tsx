@@ -14,11 +14,11 @@ import {
 
 // Definición de interfaces para el carrito
 interface CartItem {
-  id: string;
   productoId: string;
   nombre: string;
-  precio: number;
+  precioUnitario: number;
   cantidad: number;
+  subtotal: number;
   imagen?: string;
 }
 
@@ -28,8 +28,8 @@ interface CartState {
   error: string | null;
 }
 
-interface CartContextType {
-  items: CartItem[];
+export interface CartContextType {
+  cartItems: CartItem[];
   loading: boolean;
   error: string | null;
   addItem: (product: any, quantity: number) => Promise<void>;
@@ -41,7 +41,18 @@ interface CartContextType {
   getItemCount: () => number;
 }
 
-const CartContext = createContext<CartContextType | undefined>(undefined)
+const CartContext = createContext<CartContextType>({
+  cartItems: [],
+  loading: false,
+  error: null,
+  addItem: async () => {},
+  removeItem: async () => {},
+  updateQuantity: async () => {},
+  clearCart: async () => {},
+  refreshCart: async () => {},
+  getTotal: () => 0,
+  getItemCount: () => 0,
+})
 
 export function useCart() {
   const context = useContext(CartContext)
@@ -184,7 +195,7 @@ export function CartProvider({ children }: CartProviderProps) {
   }, [toast])
 
   const getTotal = useCallback(() => {
-    return cart.items.reduce((total, item) => total + item.precio * item.cantidad, 0)
+    return cart.items.reduce((total, item) => total + item.precioUnitario * item.cantidad, 0)
   }, [cart.items])
 
   const getItemCount = useCallback(() => {
@@ -194,7 +205,7 @@ export function CartProvider({ children }: CartProviderProps) {
   return (
     <CartContext.Provider
       value={{
-        items: cart.items,
+        cartItems: cart.items,
         loading: cart.loading,
         error: cart.error,
         addItem,

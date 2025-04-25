@@ -104,28 +104,28 @@ export default function PetsPage() {
     if (searchTerm.trim() !== "") {
       result = result.filter(
         (pet) =>
-          pet.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          pet.raza.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          pet.tipo.toLowerCase().includes(searchTerm.toLowerCase()),
+          (pet.nombre?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+          (pet.raza?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+          (pet.tipo?.toLowerCase() || "").includes(searchTerm.toLowerCase()),
       )
     }
 
     // Filtrar por tipo de mascota
     if (activeTab !== "todos") {
-      result = result.filter((pet) => pet.tipo.toLowerCase().includes(activeTab.toLowerCase()))
+      result = result.filter((pet) => (pet.tipo?.toLowerCase() || "").includes(activeTab.toLowerCase()))
     }
 
     // Ordenar
     result.sort((a, b) => {
       switch (sortOrder) {
         case "nombre-asc":
-          return a.nombre.localeCompare(b.nombre)
+          return (a.nombre || "").localeCompare(b.nombre || "")
         case "nombre-desc":
-          return b.nombre.localeCompare(a.nombre)
+          return (b.nombre || "").localeCompare(a.nombre || "")
         case "edad-asc":
-          return a.edad - b.edad
+          return (a.edad || 0) - (b.edad || 0)
         case "edad-desc":
-          return b.edad - a.edad
+          return (b.edad || 0) - (a.edad || 0)
         default:
           return 0
       }
