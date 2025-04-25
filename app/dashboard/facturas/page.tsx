@@ -139,10 +139,10 @@ export default function ClientInvoicesPage() {
         // Preparar datos para el PDF
         const datosPDF = {
           numero: invoice.numero || invoice.id,
-          fecha: invoice.fecha,
+          fecha: invoice.fecha || new Date().toISOString(),
           cliente: {
             nombre: invoice.cliente?.nombre || invoice.cliente?.username || 'Cliente',
-            email: invoice.cliente?.email
+            email: invoice.cliente?.email || 'No disponible'
           },
           productos: (invoice.detalles || []).map(detalle => ({
             nombre: detalle.productoNombre || detalle.servicioNombre || 'Producto/Servicio',

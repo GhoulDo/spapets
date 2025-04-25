@@ -154,10 +154,10 @@ export default function AdminClientsPage() {
                 ) : (
                   filteredClients.map((client) => (
                     <TableRow key={client.id}>
-                      <TableCell className="font-medium">{client.username}</TableCell>
-                      <TableCell>{client.email}</TableCell>
-                      <TableCell>{client.telefono || "-"}</TableCell>
-                      <TableCell>{client.direccion || "-"}</TableCell>
+                      <TableCell className="font-medium">{client?.username || 'N/A'}</TableCell>
+                      <TableCell>{client?.email || 'N/A'}</TableCell>
+                      <TableCell>{client?.telefono || '-'}</TableCell>
+                      <TableCell>{client?.direccion || '-'}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Button variant="ghost" size="icon">

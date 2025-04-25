@@ -36,7 +36,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   const { user, isAuthenticated } = useAuth();
 
   // Verificar si el usuario es administrador
-  const isAdmin = user?.roles?.includes("ROLE_ADMIN");
+  const isAdmin = user?.roles?.includes("ROLE_ADMIN") || false;
 
   // Cargar el carrito al iniciar o cuando cambia el usuario
   useEffect(() => {
