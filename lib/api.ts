@@ -1,6 +1,7 @@
 import axios, { type AxiosError } from "axios"
 
-const API_URL = "https://peluqueriacanina-api.onrender.com/api"
+// Usar la variable de entorno si está definida, de lo contrario usa la URL de desarrollo
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://peluqueriacanina-api.onrender.com/api"
 
 // Configuración de Axios para peticiones autenticadas
 const api = axios.create({
@@ -362,8 +363,7 @@ export async function createPet(petData: any, photoFile?: File) {
       mascota: mascotaJson,
       fotoName: photoFile?.name,
       formDataEntries: Array.from(formData.entries()).map(([key, val]) => 
-        `${key}: ${typeof val === 'string' ? val.substring(0, 30) + '...' : '[File]'}`
-      )
+        `${key}: ${typeof val === 'string' ? val.substring(0, 30) + '...' : '[File]'}`)
     });
     
     // Usar axios directamente para tener control total sobre la petición
@@ -939,14 +939,141 @@ export const fetchClientInvoices = async () => {
       return []
     }
 
-    console.log("Obteniendo facturas del cliente...")
-    // Obtenemos las facturas del cliente
-    const response = await api.get("/facturas")
-    console.log(`Se encontraron ${response.data.length} facturas`)
-    return response.data
+    console.log("Obteniendo facturas del cliente con el token:", token.substring(0, 10) + "...")
+    
+    // Intentar obtener información del usuario actual para fines de diagnóstico
+    let userId = null;
+    try {
+      const userResponse = await api.get("/auth/me");
+      userId = userResponse.data.id;
+      console.log("ID del usuario autenticado:", userId);
+    } catch (error) {
+      console.error("No se pudo obtener el ID del usuario actual:", error);
+      // Continuamos de todos modos ya que el backend debería filtrar por el token
+    }
+    
+    // Usar específicamente el endpoint que sabemos que funciona según el diagnóstico
+    console.log("Haciendo petición a /facturas/cliente");
+    const response = await api.get("/facturas/cliente", {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+    
+    if (response.data && Array.isArray(response.data)) {
+      console.log(`Se encontraron ${response.data.length} facturas para el cliente`);
+      
+      // Mostrar las primeras 2 facturas para diagnóstico
+      if (response.data.length > 0) {
+        console.log("Muestra de facturas:", 
+          response.data.slice(0, 2).map((f: any) => ({
+            id: f.id,
+            numero: f.numero,
+            fecha: f.fecha,
+            estado: f.estado,
+            total: f.total
+          }))
+        );
+      }
+      
+      return response.data;
+    } else {
+      console.error("La respuesta no es un array:", response.data);
+      return [];
+    }
   } catch (error) {
-    console.error("Error obteniendo facturas del cliente:", error)
-    // Devolver un array vacío en lugar de lanzar un error
+    console.error("Error obteniendo facturas del cliente:", error);
+    
+    // Intentar con un enfoque alternativo si el primero falló
+    try {
+      console.log("Intentando con el enfoque alternativo...");
+      // Obtener el ID del usuario actual
+      const userResponse = await api.get("/auth/me");
+      const userId = userResponse.data.id;
+      
+      if (userId) {
+        console.log("Obteniendo facturas con el ID del usuario:", userId);
+        // Usar el endpoint específico con el ID del usuario
+        const facturasResponse = await api.get(`/facturas/cliente/${userId}`);
+        
+        if (facturasResponse.data && Array.isArray(facturasResponse.data)) {
+          console.log(`Se encontraron ${facturasResponse.data.length} facturas`);
+          return facturasResponse.data;
+        }
+      }
+    } catch (secondError) {
+      console.error("Error en el enfoque alternativo:", secondError);
+    }
+    
+    return [];
+  }
+}
+
+// Nuevo endpoint de diagnóstico para obtener facturas del cliente
+export const fetchClientInvoicesByDiagnostic = async () => {
+  try {
+    // Verificar que el token esté disponible
+    const token = localStorage.getItem("token")
+    if (!token) {
+      console.error("No hay token disponible para obtener facturas")
+      return []
+    }
+
+    console.log("Obteniendo facturas del cliente usando endpoint de diagnóstico...")
+    
+    // Primero intentamos con el endpoint de diagnóstico específico para el cliente actual
+    try {
+      console.log("Intentando con endpoint /diagnostico/facturas/cliente")
+      const clientInfoResponse = await api.get("/diagnostico/facturas/cliente")
+      const clientInfo = clientInfoResponse.data
+      
+      // El endpoint nos dio información del cliente, pero ahora necesitamos todas las facturas
+      console.log("Información del cliente obtenida:", clientInfo)
+      
+      if (clientInfo.clienteId) {
+        // Obtenemos todas las facturas y filtramos por el ID del cliente
+        console.log("Obteniendo todas las facturas para filtrar por cliente ID:", clientInfo.clienteId)
+        const allFacturasResponse = await api.get("/diagnostico/facturas")
+        const allFacturas = allFacturasResponse.data.facturas
+        
+        // Filtramos las facturas que pertenecen a este cliente
+        const clientFacturas = allFacturas.filter(
+          (factura: any) => factura.cliente && factura.cliente.id === clientInfo.clienteId
+        )
+        
+        console.log(`Se encontraron ${clientFacturas.length} facturas para el cliente ${clientInfo.clienteNombre}`)
+        return clientFacturas
+      }
+    } catch (error) {
+      console.error("Error con endpoint de diagnóstico específico:", error)
+    }
+    
+    // Si lo anterior falla, intentamos directamente con todas las facturas
+    try {
+      console.log("Intentando obtener todas las facturas para filtrar manualmente")
+      const allFacturasResponse = await api.get("/diagnostico/facturas")
+      const allFacturas = allFacturasResponse.data.facturas || []
+      
+      // Intentamos filtrar por el username del cliente, si está disponible
+      // Como no sabemos cuál es el cliente actual, devolvemos todas para mostrarlas en UI y depurar
+      console.log(`Se obtuvieron ${allFacturas.length} facturas en total (sin filtrar)`)
+      return allFacturas
+    } catch (error) {
+      console.error("Error obteniendo todas las facturas:", error)
+    }
+    
+    // Como último recurso, intentamos con el endpoint normal que debería estar arreglado
+    try {
+      console.log("Intentando con el endpoint normal /facturas/cliente como último recurso")
+      const response = await api.get("/facturas/cliente")
+      console.log(`Se encontraron ${response.data.length} facturas con el endpoint normal`)
+      return response.data
+    } catch (finalError) {
+      console.error("Error con todos los intentos de obtener facturas:", finalError)
+      return []
+    }
+  } catch (error) {
+    console.error("Error general obteniendo facturas del cliente:", error)
     return []
   }
 }

@@ -7,20 +7,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Eye, FileDown, RefreshCw, Search, Filter, Loader2 } from "lucide-react"
-import { fetchClientInvoices, downloadInvoicePdf } from "@/lib/api"
+import { Eye, FileDown, RefreshCw, Search, Filter, Loader2, AlertCircle } from "lucide-react"
+import { fetchClientInvoicesByDiagnostic, downloadInvoicePdf } from "@/lib/api"
+import { printInvoice } from "@/lib/pdf-generator"
 import { formatDate, formatCurrency } from "@/lib/utils"
 import { InvoiceDetails } from "@/components/invoices/invoice-details"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 // Definición de interfaces necesarias
 interface Cliente {
   id: string;
-  username: string;
+  username?: string;
+  nombre?: string;
   email?: string;
   telefono?: string;
 }
@@ -38,12 +39,13 @@ interface DetalleFactura {
 
 interface Factura {
   id: string;
-  numero: number;
+  numero?: number;
   fecha: string;
   estado: string;
   total: number;
   cliente?: Cliente;
   detalles?: DetalleFactura[];
+  detalles_count?: number;
   metodoPago?: string;
   direccionEntrega?: string;
   notas?: string;
@@ -58,6 +60,7 @@ export default function ClientInvoicesPage() {
   const [selectedInvoice, setSelectedInvoice] = useState<Factura | null>(null)
   const [openDetails, setOpenDetails] = useState(false)
   const [downloadingInvoice, setDownloadingInvoice] = useState<string | null>(null)
+  const [diagnosticInfo, setDiagnosticInfo] = useState<any>(null)
 
   // Filtros
   const [searchTerm, setSearchTerm] = useState("")
@@ -70,50 +73,118 @@ export default function ClientInvoicesPage() {
 
   const loadInvoices = async () => {
     try {
-      setLoading(true)
-      setError(null)
+      setLoading(true);
+      setError(null);
+      setDiagnosticInfo(null);
 
       // Verificar que el token esté disponible
-      const token = localStorage.getItem("token")
+      const token = localStorage.getItem("token");
       if (!token) {
-        setError("No se encontró el token de autenticación. Por favor, inicie sesión nuevamente.")
-        setLoading(false)
-        return
+        setError("No se encontró el token de autenticación. Por favor, inicie sesión nuevamente.");
+        setLoading(false);
+        return;
       }
 
-      console.log("Cargando facturas...")
-      const data = await fetchClientInvoices()
-      setInvoices(data)
+      console.log("Cargando facturas del cliente usando endpoint de diagnóstico...");
+      
+      // Usar la nueva función que implementamos
+      const data = await fetchClientInvoicesByDiagnostic();
+      
+      if (data && Array.isArray(data)) {
+        console.log(`Se recibieron ${data.length} facturas del servidor`);
+        
+        // Adaptar el formato de respuesta si es necesario
+        const formattedInvoices = data.map(invoice => ({
+          id: invoice.id,
+          numero: invoice.numero || parseInt(invoice.id.substring(0, 6), 16) % 10000, // Generar un número si no viene
+          fecha: invoice.fecha,
+          estado: invoice.estado,
+          total: invoice.total,
+          cliente: invoice.cliente,
+          detalles_count: invoice.detalles_count || 0
+        }));
+        
+        setInvoices(formattedInvoices);
+        
+        // Guardar información diagnóstica
+        setDiagnosticInfo({
+          invoicesFound: data.length,
+          sampleInvoice: data.length > 0 ? data[0] : null,
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        console.error("La respuesta no es un array o está vacía:", data);
+        setInvoices([]);
+        setError("No se pudieron cargar las facturas. La respuesta del servidor no es válida.");
+      }
     } catch (error: any) {
-      console.error("Error loading invoices:", error)
-      setError(error.message || "No se pudieron cargar las facturas. Intente nuevamente.")
+      console.error("Error loading invoices:", error);
+      setError(error.message || "No se pudieron cargar las facturas. Intente nuevamente.");
       toast({
         title: "Error",
         description: "No se pudieron cargar las facturas. Intente nuevamente.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
-  const handleDownloadPdf = async (invoiceId: string) => {
+  const handleDownloadPdf = async (invoiceId: string, invoice: Factura) => {
     try {
-      setDownloadingInvoice(invoiceId)
-      await downloadInvoicePdf(invoiceId)
+      setDownloadingInvoice(invoiceId);
+
+      // Intenta usar el nuevo método primero
+      try {
+        // Preparar datos para el PDF
+        const datosPDF = {
+          numero: invoice.numero || invoice.id,
+          fecha: invoice.fecha,
+          cliente: {
+            nombre: invoice.cliente?.nombre || invoice.cliente?.username || 'Cliente',
+            email: invoice.cliente?.email
+          },
+          productos: (invoice.detalles || []).map(detalle => ({
+            nombre: detalle.productoNombre || detalle.servicioNombre || 'Producto/Servicio',
+            cantidad: detalle.cantidad,
+            precioUnitario: detalle.precioUnitario,
+            subtotal: detalle.subtotal
+          })),
+          total: invoice.total,
+          metodoPago: invoice.metodoPago || 'No especificado',
+          direccionEntrega: invoice.direccionEntrega
+        };
+        
+        // Generar el PDF
+        await printInvoice(datosPDF);
+        
+        toast({
+          title: "Éxito",
+          description: "La factura se ha abierto para imprimir o guardar como PDF",
+        });
+        
+        return;
+      } catch (error) {
+        console.error("Error usando el generador de PDF local:", error);
+        // Si falla, intentar con el método del servidor
+      }
+
+      // Método de respaldo: usar el endpoint del servidor
+      await downloadInvoicePdf(invoiceId);
+      
       toast({
         title: "Éxito",
         description: "La factura se ha descargado correctamente.",
-      })
+      });
     } catch (error) {
-      console.error("Error downloading invoice:", error)
+      console.error("Error downloading invoice:", error);
       toast({
         title: "Error",
         description: "No se pudo descargar la factura. Intente nuevamente.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setDownloadingInvoice(null)
+      setDownloadingInvoice(null);
     }
   }
 
@@ -128,7 +199,7 @@ export default function ClientInvoicesPage() {
       // Filtro de búsqueda
       const searchMatch =
         searchTerm === "" ||
-        invoice.numero.toString().includes(searchTerm) ||
+        (invoice.numero?.toString() || "").includes(searchTerm) ||
         (invoice.notas && invoice.notas.toLowerCase().includes(searchTerm.toLowerCase()))
 
       // Filtro de estado
@@ -143,9 +214,9 @@ export default function ClientInvoicesPage() {
         case "fecha-desc":
           return new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
         case "numero-asc":
-          return a.numero - b.numero
+          return (a.numero || 0) - (b.numero || 0)
         case "numero-desc":
-          return b.numero - a.numero
+          return (b.numero || 0) - (a.numero || 0)
         case "total-asc":
           return a.total - b.total
         case "total-desc":
@@ -259,12 +330,11 @@ export default function ClientInvoicesPage() {
                 ) : (
                   filteredInvoices.map((invoice) => (
                     <TableRow key={invoice.id}>
-                      <TableCell>{invoice.numero}</TableCell>
+                      <TableCell>{invoice.numero || "-"}</TableCell>
                       <TableCell>{formatDate(invoice.fecha)}</TableCell>
                       <TableCell>{formatCurrency(invoice.total)}</TableCell>
                       <TableCell>
                         <Badge 
-                          // Usar variant="outline" en lugar de "success"/"warning" que no existen
                           variant="outline"
                           className={invoice.estado === "PAGADA" ? 
                             "bg-green-100 text-green-800" : 
@@ -281,7 +351,7 @@ export default function ClientInvoicesPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleDownloadPdf(invoice.id)}
+                            onClick={() => handleDownloadPdf(invoice.id, invoice)}
                             disabled={downloadingInvoice === invoice.id}
                           >
                             {downloadingInvoice === invoice.id ? (
@@ -302,6 +372,18 @@ export default function ClientInvoicesPage() {
               </TableBody>
             </Table>
           </div>
+          
+          {/* Información diagnóstica para depurar */}
+          {diagnosticInfo && (
+            <div className="mt-8 w-full text-xs text-muted-foreground border-t pt-4">
+              <details>
+                <summary className="cursor-pointer font-medium">Información diagnóstica (para desarrolladores)</summary>
+                <pre className="mt-2 p-4 bg-muted rounded-md overflow-auto max-h-60 whitespace-pre-wrap">
+                  {JSON.stringify(diagnosticInfo, null, 2)}
+                </pre>
+              </details>
+            </div>
+          )}
         </CardContent>
       </Card>
 

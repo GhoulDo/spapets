@@ -14,6 +14,7 @@ import { getResumenCompra, confirmarCompra } from "@/lib/api"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { generateInvoicePDF, printInvoice } from "@/lib/pdf-generator"
 
 // Definiciones de interfaces para corregir errores de tipo
 interface CartItem {
@@ -130,6 +131,39 @@ export default function CarritoPage() {
       const factura = await confirmarCompra(checkoutData)
 
       console.log("Compra confirmada, factura generada:", factura)
+
+      // Preparar los datos para el PDF
+      const datosPDF = {
+        numero: factura.numero || factura.id,
+        fecha: factura.fecha || new Date().toISOString(),
+        cliente: {
+          nombre: checkoutSummary.clienteNombre,
+          email: checkoutSummary.clienteEmail
+        },
+        productos: checkoutSummary.items.map((item: any) => ({
+          nombre: item.nombre,
+          cantidad: item.cantidad,
+          precioUnitario: item.precioUnitario,
+          subtotal: item.subtotal
+        })),
+        total: checkoutSummary.total,
+        metodoPago,
+        direccionEntrega: direccionEntrega.trim() || undefined
+      };
+
+      try {
+        // Mostrar la ventana de impresión para guardar o imprimir el PDF
+        // Pasamos true para activar descarga directa
+        printInvoice(datosPDF, true);
+        
+        toast({
+          title: "Factura generada",
+          description: "Se ha abierto una ventana para guardar o imprimir su factura",
+        });
+      } catch (pdfError) {
+        console.error("Error al generar el PDF de la factura:", pdfError);
+        // Continuamos con el flujo aunque falle la generación del PDF
+      }
 
       // Limpiamos el carrito después de la compra exitosa
       await clearCart()

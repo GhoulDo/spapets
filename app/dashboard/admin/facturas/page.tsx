@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Badge } from "@/components/ui/badge"
 import { Eye, MoreHorizontal, FileDown, Search, Filter, CheckCircle, Loader2, RefreshCw, Plus } from "lucide-react"
 import { fetchInvoices, downloadInvoicePdf, setInvoiceAsPaid } from "@/lib/api"
+import { printInvoice } from "@/lib/pdf-generator"
 import { InvoiceDetails } from "@/components/invoices/invoice-details"
 import { formatDate, formatCurrency } from "@/lib/utils"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -76,7 +77,6 @@ export default function AdminInvoicesPage() {
     try {
       setLoading(true)
       setError(null)
-
       const data = await fetchInvoices()
       setInvoices(data)
     } catch (error: any) {
@@ -92,23 +92,58 @@ export default function AdminInvoicesPage() {
     }
   }
 
-  const handleDownloadPdf = async (invoiceId: string) => {
+  const handleDownloadPdf = async (invoiceId: string, invoice: Factura) => {
     try {
-      setDownloadingInvoice(invoiceId)
-      await downloadInvoicePdf(invoiceId)
+      setDownloadingInvoice(invoiceId);
+
+      // Intenta usar el nuevo método primero
+      try {
+        // Preparar datos para el PDF
+        const datosPDF = {
+          numero: invoice.numero || invoice.id,
+          fecha: invoice.fecha,
+          cliente: {
+            nombre: invoice.cliente?.username || 'Cliente',
+            email: invoice.cliente?.email,
+          },
+          productos: (invoice.detalles || []).map(detalle => ({
+            nombre: detalle.productoNombre || detalle.servicioNombre || 'Producto/Servicio',
+            cantidad: detalle.cantidad,
+            precioUnitario: detalle.precioUnitario,
+            subtotal: detalle.subtotal,
+          })),
+          total: invoice.total,
+          metodoPago: invoice.metodoPago || 'No especificado',
+          direccionEntrega: invoice.direccionEntrega,
+        };
+
+        // Generar el PDF
+        await printInvoice(datosPDF);
+        toast({
+          title: "Éxito",
+          description: "La factura se ha abierto para imprimir o guardar como PDF",
+        });
+        return;
+      } catch (error) {
+        console.error("Error usando el generador de PDF local:", error);
+        // Si falla, intentar con el método del servidor
+      }
+
+      // Método de respaldo: usar el endpoint del servidor
+      await downloadInvoicePdf(invoiceId);
       toast({
         title: "Éxito",
         description: "La factura se ha descargado correctamente.",
-      })
+      });
     } catch (error) {
-      console.error("Error downloading invoice:", error)
+      console.error("Error downloading invoice:", error);
       toast({
         title: "Error",
         description: "No se pudo descargar la factura. Intente nuevamente.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setDownloadingInvoice(null)
+      setDownloadingInvoice(null);
     }
   }
 
@@ -129,7 +164,6 @@ export default function AdminInvoicesPage() {
       setInvoices((prevInvoices) =>
         prevInvoices.map((invoice) => (invoice.id === invoiceId ? { ...invoice, estado: "PAGADA" } : invoice)),
       )
-
       toast({
         title: "Éxito",
         description: "La factura ha sido marcada como pagada.",
@@ -206,7 +240,6 @@ export default function AdminInvoicesPage() {
           </Button>
         </div>
       </div>
-
       {error && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
@@ -214,7 +247,6 @@ export default function AdminInvoicesPage() {
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-
       <Card>
         <CardHeader>
           <CardTitle>Gestión de Facturas</CardTitle>
@@ -243,14 +275,12 @@ export default function AdminInvoicesPage() {
                   <SelectItem value="PENDIENTE">Pendientes</SelectItem>
                 </SelectContent>
               </Select>
-
               <DatePicker
                 date={dateFilter}
                 setDate={setDateFilter}
                 placeholder="Filtrar por fecha"
                 className="w-[180px]"
               />
-
               <Select value={sortOrder} onValueChange={setSortOrder}>
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="Ordenar por" />
@@ -264,7 +294,6 @@ export default function AdminInvoicesPage() {
                   <SelectItem value="total-asc">Total (menor)</SelectItem>
                 </SelectContent>
               </Select>
-
               <Button
                 variant="ghost"
                 size="icon"
@@ -280,7 +309,6 @@ export default function AdminInvoicesPage() {
               </Button>
             </div>
           </div>
-
           <div className="rounded-md border">
             <Table>
               <TableHeader>
@@ -308,7 +336,7 @@ export default function AdminInvoicesPage() {
                       <TableCell>{formatDate(invoice.fecha)}</TableCell>
                       <TableCell>{formatCurrency(invoice.total)}</TableCell>
                       <TableCell>
-                        <Badge 
+                        <Badge
                           variant="outline"
                           className={invoice.estado === "PAGADA" ? 
                             "bg-green-100 text-green-800" : 
@@ -330,7 +358,7 @@ export default function AdminInvoicesPage() {
                               Ver detalles
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onClick={() => handleDownloadPdf(invoice.id)}
+                              onClick={() => handleDownloadPdf(invoice.id, invoice)}
                               disabled={downloadingInvoice === invoice.id}
                             >
                               {downloadingInvoice === invoice.id ? (
@@ -374,7 +402,6 @@ export default function AdminInvoicesPage() {
           </div>
         </CardContent>
       </Card>
-
       <Dialog open={openDetails} onOpenChange={setOpenDetails}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>

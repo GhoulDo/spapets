@@ -146,7 +146,7 @@ export function PetFormDialog({ open, onOpenChange, pet, onSave }: PetFormDialog
       } else {
         // Create new pet
         console.log("Creando nueva mascota con foto:", !!photo)
-        savedPet = await createPet(values, photo)
+        savedPet = await createPet(values, photo || undefined)
       }
 
       onSave(savedPet)

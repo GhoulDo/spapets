@@ -1,0 +1,433 @@
+bien ahora te voy a pasar una documentacion para que arregles el problema que hay en la parte de checkout de la factura y generacion de esta, esta es la documentacion: 2. PROCESO DE CHECKOUT
+2.1. Diagnosticar el servicio de checkout:GET /api/checkout/diagnostico, con su respetivo token bearer , Respuesta (200 OK):{
+    "estado": "controlador operativo",
+    "autenticacion": {
+        "autenticado": true,
+        "nombre": "jhoan@gmail.com",
+        "autoridades": [
+            {
+                "authority": "ROLE_CLIENTE"
+            }
+        ]
+    },
+    "servicio_checkout": "inicializado",
+    "timestamp": 1745538848060
+}Descripción: Endpoint de diagnóstico que permite verificar si el servicio de checkout está funcionando correctamente. No requiere autenticación.2.2. Obtener resumen del checkout:GET /api/checkout/resumen,con su respectivo token bearer, respuesta :{
+    "items": [
+        {
+            "productoId": "680981c1073a5d6eb06a5196",
+            "nombre": "pasta dro1",
+            "cantidad": 12,
+            "precioUnitario": 2000,
+            "subtotal": 24000
+        }
+    ],
+    "subtotal": 24000,
+    "total": 24000,
+    "clienteNombre": "jhoan",
+    "clienteEmail": "jhoan@gmail.com",
+    "stockDisponible": true
+}Respuesta con error de stock (200 OK):{
+  "clienteNombre": "Juan Pérez",
+  "clienteEmail": "juan@example.com",
+  "items": [
+    {
+      "productoId": "65f0a12b4c53e5787db1fc7a",
+      "nombre": "Shampoo Premium",
+      "cantidad": 15,
+      "precioUnitario": 15.50,
+      "subtotal": 232.50
+    }
+  ],
+  "subtotal": 232.50,
+  "total": 232.50,
+  "stockDisponible": false,
+  "productosConStockInsuficiente": [
+    {
+      "productoId": "65f0a12b4c53e5787db1fc7a",
+      "nombre": "Shampoo Premium",
+      "stockDisponible": 10,
+      "cantidadSolicitada": 15
+    }
+  ]
+}Descripción: Genera un resumen del carrito del cliente para confirmar antes de completar el checkout. Incluye información del cliente, items, subtotal, total e indicación de si hay suficiente stock. Si no hay suficiente stock, incluye detalles de los productos con stock insuficiente.2.3. Confirmar el checkout:POST /api/checkout/confirmar con su respectivo token bearer, Request Body:{
+  "direccionEntrega": "Calle Principal 123",
+  "metodoPago": "TARJETA",
+  "comentarios": "Entregar en horario de tarde"
+}con su respectivo token,Respuesta (200 OK):
+{
+    "id": "ee68fa0f-6716-41fc-a426-2ee2ad946b6b",
+    "cliente": {
+        "id": "6809139baf124c4544aa7a52",
+        "nombre": "jhoan",
+        "email": "jhoan@gmail.com",
+        "telefono": "",
+        "direccion": "",
+        "usuario": {
+            "id": "6809139baf124c4544aa7a51",
+            "username": "jhoan",
+            "password": "$2a$10$FNTlJ7RxhkcUnDgNvpjZX..1HMylxJ1dk9giUApmWPIeDWiW2MMvi",
+            "email": "jhoan@gmail.com",
+            "rol": "CLIENTE"
+        }
+    },
+    "fecha": "2025-04-24T23:57:31.711919388",
+    "total": 24000,
+    "estado": "PENDIENTE",
+    "detalles": [
+        {
+            "id": "b8df958e-d2ec-49c0-85c6-c1ad5e17e2a0",
+            "productoId": "680981c1073a5d6eb06a5196",
+            "productoNombre": "pasta dro1",
+            "servicioId": null,
+            "servicioNombre": null,
+            "cantidad": 12,
+            "precioUnitario": 2000,
+            "subtotal": 24000
+        }
+    ]
+}Error (400 Bad Request) - Stock insuficiente:{
+  "timestamp": "2024-06-15T14:35:00",
+  "status": 400,
+  "error": "Stock insuficiente",
+  "mensaje": "No hay suficiente stock del producto 'Shampoo Premium'. Stock disponible: 10, solicitado: 15"
+}Descripción: Procesa el checkout del carrito actual, generando una factura y vaciando el carrito. Realiza validaciones finales de stock y actualiza el inventario. La factura queda en estado "PENDIENTE" hasta que un administrador la marque como pagada.
+
+3. CONSULTA DE FACTURAS (CLIENTE)
+3.1. Obtener todas las facturas del cliente
+GET /api/facturas con us respectivo token:[
+  {
+    "id": "65fa1b784c53e5787db1fd01",
+    "cliente": {
+      "id": "65f0a4784c53e5787db1fc80",
+      "nombre": "Juan Pérez"
+    },
+    "fecha": "2024-06-15T14:30:00",
+    "total": 69.00,
+    "estado": "PENDIENTE"
+  },
+  {
+    "id": "65fa1c384c53e5787db1fd04",
+    "cliente": {
+      "id": "65f0a4784c53e5787db1fc80",
+      "nombre": "Juan Pérez"
+    },
+    "fecha": "2024-06-14T10:15:00",
+    "total": 45.00,
+    "estado": "PAGADA"
+  }
+]Descripción: Devuelve todas las facturas asociadas al cliente autenticado. El filtro se aplica automáticamente por usuario.
+
+3.2. Obtener una factura específica del cliente:GET /api/facturas/65fa1b784c53e5787db1fd01 con su respectivo token beareer,Respuesta (200 OK):
+{
+  "id": "65fa1b784c53e5787db1fd01",
+  "cliente": {
+    "id": "65f0a4784c53e5787db1fc80",
+    "nombre": "Juan Pérez",
+    "email": "juan@example.com"
+  },
+  "fecha": "2024-06-15T14:30:00",
+  "total": 69.00,
+  "estado": "PENDIENTE",
+  "detalles": [
+    {
+      "id": "65fa1b894c53e5787db1fd02",
+      "productoId": "65f0a12b4c53e5787db1fc7a",
+      "productoNombre": "Shampoo Premium",
+      "cantidad": 3,
+      "precioUnitario": 15.50,
+      "subtotal": 46.50
+    },
+    {
+      "id": "65fa1b904c53e5787db1fd03",
+      "productoId": "65f0a1584c53e5787db1fc7e",
+      "productoNombre": "Cepillo desenredante",
+      "cantidad": 1,
+      "precioUnitario": 22.50,
+      "subtotal": 22.50
+    }
+  ]
+}Error (403 Forbidden) - Intento de acceder a factura de otro cliente:{
+  "timestamp": "2024-06-15T14:40:00",
+  "status": 403,
+  "error": "Acceso denegado",
+  "mensaje": "No tiene permisos para acceder a este recurso"
+}Descripción: Devuelve el detalle completo de una factura específica. Solo permite acceder a facturas del cliente autenticado.
+
+3.3. Ver detalles de una factura específica:GET /api/facturas/65fa1b784c53e5787db1fd01/detalles  con su respectivo token bearerRespuesta (200 OK):[
+  {
+    "id": "65fa1b894c53e5787db1fd02",
+    "productoId": "65f0a12b4c53e5787db1fc7a",
+    "servicioId": null,
+    "cantidad": 3,
+    "subtotal": 46.50
+  },
+  {
+    "id": "65fa1b904c53e5787db1fd03",
+    "productoId": "65f0a1584c53e5787db1fc7e",
+    "servicioId": null,
+    "cantidad": 1,
+    "subtotal": 22.50
+  }
+]Descripción: Devuelve la lista de detalles de una factura específica. Solo permite acceder a facturas del cliente autenticado.
+
+GET /api/diagnostico/facturas
+RUTAS PARA ADMINISTRADORES
+1. GESTIÓN DE FACTURAS (ADMIN)
+1.1. Obtener todas las facturas (ADMIN):GET /api/facturas con su token , Respuesta (200 OK):[
+  {
+    "id": "65fa1b784c53e5787db1fd01",
+    "cliente": {
+      "id": "65f0a4784c53e5787db1fc80",
+      "nombre": "Juan Pérez"
+    },
+    "fecha": "2024-06-15T14:30:00",
+    "total": 69.00,
+    "estado": "PENDIENTE"
+  },
+  {
+    "id": "65fa1c384c53e5787db1fd04",
+    "cliente": {
+      "id": "65f0a4784c53e5787db1fc81",
+      "nombre": "María López"
+    },
+    "fecha": "2024-06-14T10:15:00",
+    "total": 45.00,
+    "estado": "PAGADA"
+  },
+  {
+    "id": "65fa1c564c53e5787db1fd05",
+    "cliente": {
+      "id": "65f0a4784c53e5787db1fc82",
+      "nombre": "Carlos Gómez"
+    },
+    "fecha": "2024-06-13T16:45:00",
+    "total": 120.00,
+    "estado": "PENDIENTE"
+  }
+]Descripción: Devuelve todas las facturas del sistema. Al ser administrador, puede ver facturas de cualquier cliente.1.2. Obtener facturas de un cliente específico (ADMIN):GET /api/facturacion-unificada/cliente/65f0a4784c53e5787db1fc80 con token,Respuesta (200 OK):[
+  {
+    "id": "65fa1b784c53e5787db1fd01",
+    "cliente": {
+      "id": "65f0a4784c53e5787db1fc80",
+      "nombre": "Juan Pérez"
+    },
+    "fecha": "2024-06-15T14:30:00",
+    "total": 69.00,
+    "estado": "PENDIENTE"
+  },
+  {
+    "id": "65fa1d124c53e5787db1fd06",
+    "cliente": {
+      "id": "65f0a4784c53e5787db1fc80",
+      "nombre": "Juan Pérez"
+    },
+    "fecha": "2024-06-12T09:20:00",
+    "total": 35.00,
+    "estado": "PAGADA"
+  }
+]Descripción: Devuelve todas las facturas asociadas a un cliente específico. Requiere rol de administrador.1.3. Marcar una factura como pagada (ADMIN)PUT /api/facturacion-unificada/pagar/65fa1b784c53e5787db1fd01 con su token,Respuesta (200 OK):{
+  "id": "65fa1b784c53e5787db1fd01",
+  "cliente": {
+    "id": "65f0a4784c53e5787db1fc80",
+    "nombre": "Juan Pérez"
+  },
+  "fecha": "2024-06-15T14:30:00",
+  "total": 69.00,
+  "estado": "PAGADA",
+  "detalles": [
+    {
+      "id": "65fa1b894c53e5787db1fd02",
+      "productoId": "65f0a12b4c53e5787db1fc7a",
+      "productoNombre": "Shampoo Premium",
+      "cantidad": 3,
+      "precioUnitario": 15.50,
+      "subtotal": 46.50
+    },
+    {
+      "id": "65fa1b904c53e5787db1fd03",
+      "productoId": "65f0a1584c53e5787db1fc7e",
+      "productoNombre": "Cepillo desenredante",
+      "cantidad": 1,
+      "precioUnitario": 22.50,
+      "subtotal": 22.50
+    }
+  ]
+}Descripción: Cambia el estado de una factura a "PAGADA". Solo los administradores pueden realizar esta acción.2. FACTURACIÓN DE SERVICIOS
+2.1. Facturar una cita (servicio) (ADMIN)
+POST /api/facturacion-unificada/facturar-cita/65fb2c784c53e5787db1fd10 con su token,Request Body (opcional):{
+  "productosIds": ["65f0a12b4c53e5787db1fc7a", "65f0a1584c53e5787db1fc7e"],
+  "cantidades": [1, 2]
+}Respuesta (200 OK):{
+  "id": "65fb2c984c53e5787db1fd11",
+  "cliente": {
+    "id": "65f0a4784c53e5787db1fc80",
+    "nombre": "Juan Pérez",
+    "email": "juan@example.com"
+  },
+  "fecha": "2024-06-15T15:45:00",
+  "total": 95.50,
+  "estado": "PENDIENTE",
+  "detalles": [
+    {
+      "id": "65fb2ca14c53e5787db1fd12",
+      "servicioId": "65f0bc124c53e5787db1fcf0",
+      "servicioNombre": "Corte de pelo",
+      "cantidad": 1,
+      "precioUnitario": 35.00,
+      "subtotal": 35.00
+    },
+    {
+      "id": "65fb2ca84c53e5787db1fd13",
+      "productoId": "65f0a12b4c53e5787db1fc7a",
+      "productoNombre": "Shampoo Premium",
+      "cantidad": 1,
+      "precioUnitario": 15.50,
+      "subtotal": 15.50
+    },
+    {
+      "id": "65fb2cb04c53e5787db1fd14",
+      "productoId": "65f0a1584c53e5787db1fc7e",
+      "productoNombre": "Cepillo desenredante",
+      "cantidad": 2,
+      "precioUnitario": 22.50,
+      "subtotal": 45.00
+    }
+  ]
+}Error (400 Bad Request) - Cita ya facturada:{
+  "timestamp": "2024-06-15T15:50:00",
+  "status": 400,
+  "error": "Error de validación",
+  "mensaje": "La cita ya ha sido facturada"
+}Descripción: Crea una factura a partir de una cita completada, incluyendo el servicio asociado a la cita. Opcionalmente, permite añadir productos utilizados durante el servicio. Marca automáticamente la cita como facturada.2.2. Agregar productos a una factura existente (ADMIN/CLIENTE),PUT /api/facturacion-unificada/agregar-productos/65fb2c984c53e5787db1fd11 con su token,Request Body:{
+  "productosIds": ["65f0a1724c53e5787db1fc7f"],
+  "cantidades": [1]
+}Respuesta (200 OK):{
+  "id": "65fb2c984c53e5787db1fd11",
+  "cliente": {
+    "id": "65f0a4784c53e5787db1fc80",
+    "nombre": "Juan Pérez",
+    "email": "juan@example.com"
+  },
+  "fecha": "2024-06-15T15:45:00",
+  "total": 115.50,
+  "estado": "PENDIENTE",
+  "detalles": [
+    {
+      "id": "65fb2ca14c53e5787db1fd12",
+      "servicioId": "65f0bc124c53e5787db1fcf0",
+      "servicioNombre": "Corte de pelo",
+      "cantidad": 1,
+      "precioUnitario": 35.00,
+      "subtotal": 35.00
+    },
+    {
+      "id": "65fb2ca84c53e5787db1fd13",
+      "productoId": "65f0a12b4c53e5787db1fc7a",
+      "productoNombre": "Shampoo Premium",
+      "cantidad": 1,
+      "precioUnitario": 15.50,
+      "subtotal": 15.50
+    },
+    {
+      "id": "65fb2cb04c53e5787db1fd14",
+      "productoId": "65f0a1584c53e5787db1fc7e",
+      "productoNombre": "Cepillo desenredante",
+      "cantidad": 2,
+      "precioUnitario": 22.50,
+      "subtotal": 45.00
+    },
+    {
+      "id": "65fb2d104c53e5787db1fd15",
+      "productoId": "65f0a1724c53e5787db1fc7f",
+      "productoNombre": "Collar antipulgas",
+      "cantidad": 1,
+      "precioUnitario": 20.00,
+      "subtotal": 20.00
+    }
+  ]
+}Error (400 Bad Request) - Factura no en estado pendiente:{
+  "timestamp": "2024-06-15T16:00:00",
+  "status": 400,
+  "error": "Error de validación",
+  "mensaje": "Solo se pueden agregar productos a facturas en estado PENDIENTE"
+}Descripción: Añade nuevos productos a una factura existente. Solo permite modificar facturas en estado "PENDIENTE". Actualiza automáticamente el inventario y recalcula los totales de la factura. Los clientes solo pueden modificar sus propias facturas.
+
+3. GESTIÓN DE DETALLES DE FACTURA (ADMIN)
+3.1. Modificar un detalle de factura (ADMIN) ,PUT /api/facturas/65fb2c984c53e5787db1fd11/detalles/65fb2cb04c53e5787db1fd14 con su token,{
+  "cantidad": 3
+}Respuesta (200 OK):{
+  "id": "65fb2cb04c53e5787db1fd14",
+  "productoId": "65f0a1584c53e5787db1fc7e",
+  "servicioId": null,
+  "cantidad": 3,
+  "subtotal": 67.50
+}Descripción: Permite modificar un detalle específico de una factura, como la cantidad. Actualiza automáticamente el stock de productos y recalcula los totales. Solo disponible para administradores.
+
+3.2. Eliminar un detalle de factura (ADMIN)DELETE /api/facturas/65fb2c984c53e5787db1fd11/detalles/65fb2cb04c53e5787db1fd14,Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...,Respuesta (204 No Content)
+
+Descripción: Elimina un detalle específico de una factura. Restaura el stock del producto si corresponde y recalcula los totales de la factura. Solo disponible para administradores.ESTRUCTURA DE OBJETOS
+Estructura de Factura
+{
+  "id": "string",
+  "cliente": {
+    "id": "string",
+    "nombre": "string",
+    "email": "string"
+  },
+  "fecha": "datetime",
+  "total": "decimal",
+  "estado": "string (PENDIENTE, PAGADA, CANCELADA)",
+  "detalles": [
+    {
+      "id": "string",
+      "productoId": "string (opcional)",
+      "productoNombre": "string (opcional)",
+      "servicioId": "string (opcional)",
+      "servicioNombre": "string (opcional)",
+      "cantidad": "integer",
+      "precioUnitario": "decimal",
+      "subtotal": "decimal"
+    }
+  ]
+}Estructura de DetalleFactura:{
+  "id": "string",
+  "productoId": "string (opcional)",
+  "productoNombre": "string (opcional)",
+  "servicioId": "string (opcional)",
+  "servicioNombre": "string (opcional)",
+  "cantidad": "integer",
+  "precioUnitario": "decimal",
+  "subtotal": "decimal"
+}Estructura de Carrito:{
+  "clienteId": "string",
+  "items": [
+    {
+      "productoId": "string",
+      "nombre": "string",
+      "cantidad": "integer",
+      "precioUnitario": "decimal",
+      "subtotal": "decimal"
+    }
+  ],
+  "total": "decimal"
+}Nota sobre los estados de factura:
+
+PENDIENTE: Factura generada pero aún no pagada
+PAGADA: Factura completamente pagada
+CANCELADA: Factura anulada (el stock se restaura)
+
+## Problema con la creación de mascotas en la API
+
+El problema al crear mascotas con la API está relacionado con la forma en que el backend busca el cliente asociado al usuario autenticado.
+
+### Detalles del error:
+```
+# Modificación del Backend para Solucionar el Error de Creación de Mascotas
+
+## Problema Identificado
+El frontend está experimentando errores al crear mascotas porque el backend busca usuarios por username cuando el token JWT contiene un email como identificador principal.
+
+Error específico:
+
+
