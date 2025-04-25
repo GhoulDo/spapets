@@ -1,18 +1,10 @@
-"use client"
+"use client";
 
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react'
-import { useToast } from '@/components/ui/use-toast'
-import { useAuth } from '@/context/auth-context'
-import {
-  addToCart,
-  fetchCart,
-  getCarrito,
-  removeFromCart,
-  updateCartItem,
-  clearCart as clearCartAPI,
-} from '@/lib/api'
+import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { fetchCart, addToCart, updateCartItem as updateCartItemApi, removeFromCart as removeFromCartApi, clearCart as clearCartApi } from "@/lib/api";
+import { useAuth } from "@/context/auth-context";
 
-// Definición de interfaces para el carrito
+// Definición de tipos
 interface CartItem {
   productoId: string;
   nombre: string;
@@ -22,14 +14,8 @@ interface CartItem {
   imagen?: string;
 }
 
-interface CartState {
-  items: CartItem[];
-  loading: boolean;
-  error: string | null;
-}
-
-export interface CartContextType {
-  cartItems: CartItem[];
+interface CartContextType {
+  cartItems: CartItem[] | null;
   loading: boolean;
   error: string | null;
   addItem: (product: any, quantity: number) => Promise<void>;
@@ -41,183 +27,163 @@ export interface CartContextType {
   getItemCount: () => number;
 }
 
-const CartContext = createContext<CartContextType>({
-  cartItems: [],
-  loading: false,
-  error: null,
-  addItem: async () => {},
-  removeItem: async () => {},
-  updateQuantity: async () => {},
-  clearCart: async () => {},
-  refreshCart: async () => {},
-  getTotal: () => 0,
-  getItemCount: () => 0,
-})
+const CartContext = createContext<CartContextType | undefined>(undefined);
 
-export function useCart() {
-  const context = useContext(CartContext)
-  if (context === undefined) {
-    throw new Error('useCart must be used within a CartProvider')
-  }
-  return context
-}
+export const CartProvider = ({ children }: { children: ReactNode }) => {
+  const [cartItems, setCartItems] = useState<CartItem[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const { user, isAuthenticated } = useAuth();
 
-interface CartProviderProps {
-  children: React.ReactNode
-}
+  // Verificar si el usuario es administrador
+  const isAdmin = user?.roles?.includes("ROLE_ADMIN");
 
-export function CartProvider({ children }: CartProviderProps) {
-  const [cart, setCart] = useState<CartState>({ items: [], loading: true, error: null })
-  const { isAuthenticated, user } = useAuth()
-  const { toast } = useToast()
-
-  const loadCart = useCallback(async () => {
-    if (!isAuthenticated) {
-      setCart({ items: [], loading: false, error: null })
-      return
-    }
-
-    try {
-      setCart((prev) => ({ ...prev, loading: true, error: null }))
-      
-      // Verificar si el usuario está autenticado y tiene token
-      const token = localStorage.getItem("token")
-      if (!token) {
-        throw new Error("No se encontró token de autenticación")
-      }
-      
-      // Intentar obtener el carrito
-      const data = await fetchCart()
-      
-      // Asegurarse de que data.items exista, si no usar un array vacío
-      const items = data?.items || []
-      
-      setCart({ items, loading: false, error: null })
-    } catch (error: any) {
-      console.error("Error loading cart:", error)
-      // No mostrar el error en la UI si es un error 403 (probablemente el usuario no tenga permisos)
-      // pero mantener un carrito vacío
-      setCart({ items: [], loading: false, error: error.message })
-    }
-  }, [isAuthenticated])
-
-  // Cargar el carrito cuando el usuario está autenticado
+  // Cargar el carrito al iniciar o cuando cambia el usuario
   useEffect(() => {
     if (isAuthenticated) {
-      loadCart()
+      fetchCartItems();
     } else {
-      // Si no está autenticado, inicializar con un carrito vacío
-      setCart({ items: [], loading: false, error: null })
+      setCartItems([]);
+      setLoading(false);
     }
-  }, [isAuthenticated, loadCart])
+  }, [isAuthenticated]);
 
-  const addItem = useCallback(async (product: any, quantity: number) => {
+  const fetchCartItems = async () => {
     try {
-      setCart((prev) => ({ ...prev, loading: true, error: null }))
-      await addToCart(product.id, quantity)
-      await loadCart() // Recargar el carrito completo
-      toast({
-        title: "Producto añadido",
-        description: `${product.nombre || product.name} añadido al carrito`,
-      })
-    } catch (error: any) {
-      console.error("Error adding item to cart:", error)
-      setCart((prev) => ({ ...prev, loading: false, error: error.message }))
-      toast({
-        title: "Error",
-        description: error.message || "No se pudo añadir el producto al carrito",
-        variant: "destructive",
-      })
-    }
-  }, [loadCart, toast])
+      setLoading(true);
+      setError(null);
 
-  const removeItem = useCallback(async (productId: string) => {
-    try {
-      setCart((prev) => ({ ...prev, loading: true, error: null }))
-      await removeFromCart(productId)
-      await loadCart() // Recargar el carrito completo
-      toast({
-        title: "Producto eliminado",
-        description: "Producto eliminado del carrito",
-      })
-    } catch (error: any) {
-      console.error("Error removing item from cart:", error)
-      setCart((prev) => ({ ...prev, loading: false, error: error.message }))
-      toast({
-        title: "Error",
-        description: error.message || "No se pudo eliminar el producto del carrito",
-        variant: "destructive",
-      })
-    }
-  }, [loadCart, toast])
+      // Si es administrador, establecer un carrito vacío y no llamar a la API
+      if (isAdmin) {
+        console.log("Usuario es administrador. No cargando carrito.");
+        setCartItems([]);
+        setLoading(false);
+        return;
+      }
 
-  // Función para actualizar la cantidad de un producto ya en el carrito
-  const updateQuantity = useCallback(async (productId: string, quantity: number) => {
-    if (quantity <= 0) {
-      return removeItem(productId)
+      const cartData = await fetchCart();
+      setCartItems(cartData.items || []);
+    } catch (error: any) {
+      console.error("Error fetching cart:", error);
+      setError(error.message || "Error al cargar el carrito");
+      setCartItems([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addItem = async (product: any, quantity: number) => {
+    // Si es administrador, mostrar mensaje y no hacer nada
+    if (isAdmin) {
+      console.log("Los administradores no pueden usar el carrito");
+      return;
     }
 
     try {
-      setCart((prev) => ({ ...prev, loading: true, error: null }))
-      await updateCartItem(productId, quantity)
-      await loadCart() // Recargar el carrito completo
+      setLoading(true);
+      await addToCart(product.id, quantity);
+      await fetchCartItems(); // Recargar el carrito
     } catch (error: any) {
-      console.error("Error updating quantity:", error)
-      setCart((prev) => ({ ...prev, loading: false, error: error.message }))
-      
-      // Mostrar toast con el error
-      toast({
-        title: "Error",
-        description: error.message || "No se pudo actualizar la cantidad del producto",
-        variant: "destructive",
-      })
+      console.error("Error adding item to cart:", error);
+      setError(error.message || "Error al agregar producto al carrito");
+    } finally {
+      setLoading(false);
     }
-  }, [loadCart, removeItem, toast])
+  };
 
-  const clearCartItems = useCallback(async () => {
+  const removeItem = async (productId: string) => {
+    // Si es administrador, no hacer nada
+    if (isAdmin) return;
+
     try {
-      setCart((prev) => ({ ...prev, loading: true, error: null }))
-      await clearCartAPI()
-      setCart({ items: [], loading: false, error: null })
-      toast({
-        title: "Carrito vacío",
-        description: "Se han eliminado todos los productos del carrito",
-      })
+      setLoading(true);
+      await removeFromCartApi(productId);
+      await fetchCartItems(); // Recargar el carrito
     } catch (error: any) {
-      console.error("Error clearing cart:", error)
-      setCart((prev) => ({ ...prev, loading: false, error: error.message }))
-      toast({
-        title: "Error",
-        description: error.message || "No se pudo vaciar el carrito",
-        variant: "destructive",
-      })
+      console.error("Error removing item from cart:", error);
+      setError(error.message || "Error al eliminar producto del carrito");
+    } finally {
+      setLoading(false);
     }
-  }, [toast])
+  };
 
-  const getTotal = useCallback(() => {
-    return cart.items.reduce((total, item) => total + item.precioUnitario * item.cantidad, 0)
-  }, [cart.items])
+  const updateQuantity = async (productId: string, quantity: number) => {
+    // Si es administrador, no hacer nada
+    if (isAdmin) return;
 
-  const getItemCount = useCallback(() => {
-    return cart.items.reduce((count, item) => count + item.cantidad, 0)
-  }, [cart.items])
+    try {
+      setLoading(true);
+      if (quantity <= 0) {
+        await removeFromCartApi(productId);
+      } else {
+        await updateCartItemApi(productId, quantity);
+      }
+      await fetchCartItems(); // Recargar el carrito
+    } catch (error: any) {
+      console.error("Error updating cart item quantity:", error);
+      setError(error.message || "Error al actualizar cantidad del producto");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  return (
-    <CartContext.Provider
-      value={{
-        cartItems: cart.items,
-        loading: cart.loading,
-        error: cart.error,
-        addItem,
-        removeItem,
-        updateQuantity,
-        clearCart: clearCartItems,
-        refreshCart: loadCart,
-        getTotal,
-        getItemCount,
-      }}
-    >
-      {children}
-    </CartContext.Provider>
-  )
-}
+  const clearCart = async () => {
+    // Si es administrador, no hacer nada
+    if (isAdmin) return;
+
+    try {
+      setLoading(true);
+      await clearCartApi();
+      setCartItems([]);
+    } catch (error: any) {
+      console.error("Error clearing cart:", error);
+      setError(error.message || "Error al vaciar el carrito");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const refreshCart = async () => {
+    // Si es administrador, simplemente establecer un carrito vacío
+    if (isAdmin) {
+      setCartItems([]);
+      setLoading(false);
+      return;
+    }
+    
+    return fetchCartItems();
+  };
+
+  const getTotal = () => {
+    if (!cartItems) return 0;
+    return cartItems.reduce((total, item) => total + item.subtotal, 0);
+  };
+
+  const getItemCount = () => {
+    if (!cartItems) return 0;
+    return cartItems.reduce((count, item) => count + item.cantidad, 0);
+  };
+
+  const value = {
+    cartItems,
+    loading,
+    error,
+    addItem,
+    removeItem,
+    updateQuantity,
+    clearCart,
+    refreshCart,
+    getTotal,
+    getItemCount,
+  };
+
+  return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
+};
+
+export const useCart = () => {
+  const context = useContext(CartContext);
+  if (context === undefined) {
+    throw new Error("useCart must be used within a CartProvider");
+  }
+  return context;
+};

@@ -732,6 +732,21 @@ export async function getCarrito() {
       throw new Error("No se encontró el token de autenticación")
     }
 
+    // Obtener información del usuario para verificar si es admin
+    try {
+      const userResponse = await api.get("/auth/me");
+      // Si el usuario es admin, retornar un carrito vacío
+      if (userResponse.data && userResponse.data.roles && 
+          Array.isArray(userResponse.data.roles) && 
+          userResponse.data.roles.includes("ROLE_ADMIN")) {
+        console.log("Usuario administrador detectado - retornando carrito vacío");
+        return { items: [] };
+      }
+    } catch (userError) {
+      console.error("Error verificando rol de usuario:", userError);
+      // Continuamos con la solicitud original
+    }
+
     // Verificar que estemos haciendo la petición con el token correctamente
     console.log("Obteniendo carrito con token:", token.substring(0, 15) + "...")
     
@@ -755,9 +770,9 @@ export async function getCarrito() {
         data: error.response.data
       })
       
-      // Si es un error 403, probablemente sea un problema con el rol del usuario
-      if (error.response.status === 403) {
-        console.error("Error de autorización: No tienes permisos para esta acción")
+      // Si es un error 401 o 403, probablemente sea un admin
+      if (error.response.status === 401 || error.response.status === 403) {
+        console.error("Error de autorización - posible intento de usuario admin accediendo a carrito")
         // Devolver un carrito vacío en lugar de lanzar error para una mejor experiencia de usuario
         return { items: [] }
       }
