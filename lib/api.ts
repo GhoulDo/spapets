@@ -14,6 +14,9 @@ const api = axios.create({
   },
 })
 
+// Exportar la instancia api para usarla directamente
+export default api;
+
 // Interceptor para añadir el token de autenticación a todas las peticiones
 api.interceptors.request.use(
   (config) => {
@@ -207,14 +210,103 @@ export const logout = async () => {
 }
 
 // Usuarios API
-export const getUserProfile = async (userId: string) => {
+export const getUserProfile = async () => {
   try {
-    // Usamos la ruta documentada para obtener un usuario por ID
-    const response = await api.get(`/usuarios/${userId}`)
-    return response.data
-  } catch (error) {
-    console.error("Error obteniendo perfil de usuario:", error)
-    throw error
+    // Verificar que el token esté disponible
+    const token = localStorage.getItem("token");
+    if (!token) {
+      throw new Error("No hay un token de autenticación disponible");
+    }
+
+    // Usar el endpoint /auth/me para obtener el perfil del usuario autenticado
+    console.log("Obteniendo perfil de usuario desde /auth/me");
+    const response = await api.get("/auth/me");
+    
+    console.log("Perfil de usuario obtenido correctamente:", {
+      id: response.data.id,
+      username: response.data.username,
+      email: response.data.email,
+      // Otros campos omitidos para el log
+    });
+    
+    return response.data;
+  } catch (error: any) {
+    console.error("Error obteniendo perfil de usuario:", error);
+    
+    if (error.response && error.response.status === 401) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      throw new Error("Su sesión ha expirado. Por favor inicie sesión nuevamente.");
+    }
+    
+    throw error;
+  }
+}
+
+export const updateUserProfile = async (userData: any) => {
+  try {
+    // Verificar que el token esté disponible
+    const token = localStorage.getItem("token");
+    if (!token) {
+      throw new Error("No hay un token de autenticación disponible");
+    }
+    
+    console.log("Actualizando perfil con:", {
+      ...userData,
+      // Ocultamos las contraseñas en los logs si existen
+      currentPassword: userData.currentPassword ? "***" : undefined,
+      password: userData.password ? "***" : undefined
+    });
+    
+    // Usamos el endpoint /auth/update-profile
+    const response = await api.put("/auth/update-profile", userData);
+    
+    // Si hay éxito, también actualizamos el usuario en localStorage
+    if (response.data) {
+      try {
+        const storedUser = localStorage.getItem("user");
+        if (storedUser) {
+          const currentUser = JSON.parse(storedUser);
+          // No incluimos campos sensibles como contraseñas en el localStorage
+          const updatedUser = { 
+            ...currentUser, 
+            username: userData.username || currentUser.username,
+            email: userData.email || currentUser.email,
+            nombre: userData.nombre || currentUser.nombre,
+            telefono: userData.telefono || currentUser.telefono,
+            direccion: userData.direccion || currentUser.direccion
+          };
+          localStorage.setItem("user", JSON.stringify(updatedUser));
+        }
+      } catch (storageError) {
+        console.error("Error al actualizar usuario en localStorage:", storageError);
+      }
+    }
+    
+    console.log("Perfil actualizado correctamente");
+    return response.data;
+  } catch (error: any) {
+    console.error("Error actualizando perfil de usuario:", error);
+    
+    // Mejorar manejo de errores para dar retroalimentación más específica
+    if (error.response) {
+      switch (error.response.status) {
+        case 400:
+          if (error.response.data && typeof error.response.data === 'string' && 
+              error.response.data.includes("contraseña")) {
+            throw new Error("La contraseña actual es incorrecta");
+          }
+          throw new Error("Datos inválidos. Verifique la información proporcionada.");
+        case 401:
+          throw new Error("Su sesión ha expirado. Por favor inicie sesión nuevamente.");
+        case 409:
+          throw new Error("El nombre de usuario o email ya está en uso por otro usuario.");
+        default:
+          throw new Error(extractErrorMessage(error) || "Error al actualizar el perfil");
+      }
+    }
+    
+    throw error;
   }
 }
 
@@ -279,16 +371,6 @@ export const createClient = async (clientData: any) => {
     return response.data
   } catch (error) {
     console.error("Error creando cliente:", error)
-    throw error
-  }
-}
-
-export const updateClient = async (id: string, clientData: any) => {
-  try {
-    const response = await api.put(`/clientes/${id}`, clientData)
-    return response.data
-  } catch (error) {
-    console.error(`Error actualizando cliente con ID ${id}:`, error)
     throw error
   }
 }

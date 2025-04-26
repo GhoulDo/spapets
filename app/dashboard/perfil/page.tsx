@@ -1,18 +1,37 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import * as z from "zod"
 import { useAuth } from "@/context/auth-context"
 import { useToast } from "@/components/ui/use-toast"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
+import { z } from "zod"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { useForm } from "react-hook-form"
+import { getUserProfile, updateUserProfile } from "@/lib/api"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  CardFooter
+} from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form"
+import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { getUserProfile, updateClient } from "@/lib/api"
+import { Loader2 } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { AlertCircle } from "lucide-react"
 
+// Definir el esquema para el formulario de perfil
 const profileSchema = z.object({
   username: z.string().min(3, {
     message: "El nombre de usuario debe tener al menos 3 caracteres",
@@ -22,155 +41,212 @@ const profileSchema = z.object({
   }),
   telefono: z.string().optional(),
   direccion: z.string().optional(),
+  nombre: z.string().optional(),
 })
 
+// Definir el esquema para el cambio de contraseña
 const passwordSchema = z
   .object({
     currentPassword: z.string().min(6, {
       message: "La contraseña actual debe tener al menos 6 caracteres",
     }),
-    newPassword: z.string().min(6, {
+    password: z.string().min(6, {
       message: "La nueva contraseña debe tener al menos 6 caracteres",
     }),
     confirmPassword: z.string(),
   })
-  .refine((data) => data.newPassword === data.confirmPassword, {
+  .refine((data) => data.password === data.confirmPassword, {
     message: "Las contraseñas no coinciden",
     path: ["confirmPassword"],
   })
 
-export default function ProfilePage() {
-  const { user } = useAuth()
-  const { toast } = useToast()
-  const [loading, setLoading] = useState(true)
-  const [profileData, setProfileData] = useState<any>(null)
-  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false)
-  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false)
+type ProfileFormValues = z.infer<typeof profileSchema>;
+type PasswordFormValues = z.infer<typeof passwordSchema>;
 
-  const profileForm = useForm<z.infer<typeof profileSchema>>({
+export default function ProfilePage() {
+  const { user, refreshUser } = useAuth();
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [profileData, setProfileData] = useState<any>(null);
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Inicializar el formulario de perfil
+  const profileForm = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
       username: "",
       email: "",
       telefono: "",
       direccion: "",
-    },
-  })
+      nombre: ""
+    }
+  });
 
-  const passwordForm = useForm<z.infer<typeof passwordSchema>>({
+  // Inicializar el formulario de contraseña
+  const passwordForm = useForm<PasswordFormValues>({
     resolver: zodResolver(passwordSchema),
     defaultValues: {
       currentPassword: "",
-      newPassword: "",
+      password: "",
       confirmPassword: "",
     },
-  })
+  });
 
   useEffect(() => {
     const loadProfile = async () => {
       try {
-        setLoading(true)
-        if (!user?.id) {
-          throw new Error("El ID del usuario no está definido");
+        setLoading(true);
+        setError(null);
+
+        // Usar exclusivamente getUserProfile que obtiene los datos de /auth/me
+        console.log("Obteniendo datos del perfil desde el endpoint /auth/me");
+        const userData = await getUserProfile();
+        
+        if (userData) {
+          console.log("Datos del perfil obtenidos:", {
+            id: userData.id,
+            username: userData.username,
+            email: userData.email,
+            // Datos sensibles omitidos del log
+          });
+          
+          setProfileData(userData);
+          
+          // Resetear el formulario con los datos recibidos
+          profileForm.reset({
+            username: userData.username || "",
+            email: userData.email || "",
+            telefono: userData.telefono || "",
+            direccion: userData.direccion || "",
+            nombre: userData.nombre || ""
+          });
+        } else {
+          throw new Error("No se recibieron datos del perfil");
         }
-        const data = await getUserProfile(user.id) // Pasar el ID del usuario como argumento
-        setProfileData(data)
-        profileForm.reset({
-          username: data.username,
-          email: data.email,
-          telefono: data.telefono || "",
-          direccion: data.direccion || "",
-        })
-      } catch (error) {
-        console.error("Error loading profile:", error)
+      } catch (error: any) {
+        console.error("Error cargando perfil:", error);
+        setError(error.message || "No se pudo cargar la información del perfil");
         toast({
           title: "Error",
           description: "No se pudo cargar la información del perfil. Intente nuevamente.",
           variant: "destructive",
-        })
+        });
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    if (user?.id) { // Solo cargar el perfil si el usuario está autenticado y tiene ID
-      loadProfile()
-    }
-  }, [toast, profileForm, user])
+    loadProfile();
+  }, [toast, profileForm]);
 
-  const onProfileSubmit = async (values: z.infer<typeof profileSchema>) => {
-    setIsUpdatingProfile(true)
+  const onProfileSubmit = async (data: ProfileFormValues) => {
     try {
-      // Verificar que el usuario esté autenticado antes de actualizar
-      if (!user || !user.id) {
-        throw new Error("Usuario no autenticado");
-      }
+      setIsUpdatingProfile(true);
+      setError(null);
       
-      await updateClient(user.id, values)
+      // Usar el formato correcto para updateUserProfile según el backend
+      // Solo enviamos los campos que se están actualizando
+      const updateData = {
+        username: data.username,
+        email: data.email,
+        telefono: data.telefono || undefined, 
+        direccion: data.direccion || undefined,
+        nombre: data.nombre || undefined
+      };
+      
+      await updateUserProfile(updateData);
+      
       toast({
-        title: "Éxito",
-        description: "Perfil actualizado correctamente",
-      })
-    } catch (error) {
-      console.error("Error updating profile:", error)
+        title: "Perfil actualizado",
+        description: "La información de tu perfil ha sido actualizada correctamente.",
+      });
+      
+      // Actualizar el perfil local y en el contexto de autenticación
+      setProfileData({ ...profileData, ...data });
+      await refreshUser(); // Actualizar los datos del usuario en el contexto
+      
+    } catch (error: any) {
+      console.error("Error actualizando perfil:", error);
+      setError(error.message || "No se pudo actualizar la información del perfil");
       toast({
         title: "Error",
-        description: "No se pudo actualizar el perfil. Intente nuevamente.",
+        description: "No se pudo actualizar la información del perfil. Intente nuevamente.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsUpdatingProfile(false)
+      setIsUpdatingProfile(false);
     }
-  }
+  };
 
-  const onPasswordSubmit = async (values: z.infer<typeof passwordSchema>) => {
-    setIsUpdatingPassword(true)
+  const onPasswordSubmit = async (data: PasswordFormValues) => {
     try {
-      // Implement password change API call
-      await new Promise((resolve) => setTimeout(resolve, 1000)) // Simulated API call
+      setIsUpdatingPassword(true);
+      setError(null);
+      
+      // Formato para actualizar la contraseña
+      const passwordUpdateData = {
+        currentPassword: data.currentPassword,
+        password: data.password
+      };
+      
+      // Usar la misma función updateUserProfile pero solo con los campos de contraseña
+      await updateUserProfile(passwordUpdateData);
+      
       toast({
-        title: "Éxito",
-        description: "Contraseña actualizada correctamente",
-      })
-      passwordForm.reset({
-        currentPassword: "",
-        newPassword: "",
-        confirmPassword: "",
-      })
-    } catch (error) {
-      console.error("Error updating password:", error)
+        title: "Contraseña actualizada",
+        description: "Tu contraseña ha sido actualizada correctamente.",
+      });
+      
+      // Limpiar formulario
+      passwordForm.reset();
+    } catch (error: any) {
+      console.error("Error actualizando contraseña:", error);
+      setError(error.message || "No se pudo actualizar la contraseña");
       toast({
         title: "Error",
         description: "No se pudo actualizar la contraseña. Intente nuevamente.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsUpdatingPassword(false)
+      setIsUpdatingPassword(false);
     }
-  }
+  };
 
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-700"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
       </div>
-    )
+    );
   }
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-gray-800">Mi Perfil</h1>
-
-      <Tabs defaultValue="profile" className="space-y-4">
+      <h1 className="text-3xl font-bold">Mi Perfil</h1>
+      
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+      
+      <Tabs defaultValue="profile">
         <TabsList>
           <TabsTrigger value="profile">Información Personal</TabsTrigger>
-          <TabsTrigger value="security">Seguridad</TabsTrigger>
+          <TabsTrigger value="password">Cambiar Contraseña</TabsTrigger>
         </TabsList>
+        
         <TabsContent value="profile">
           <Card>
             <CardHeader>
               <CardTitle>Información Personal</CardTitle>
-              <CardDescription>Actualiza tu información personal</CardDescription>
+              <CardDescription>
+                Actualiza tu información personal y datos de contacto.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <Form {...profileForm}>
@@ -180,70 +256,96 @@ export default function ProfilePage() {
                     name="username"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Nombre de usuario</FormLabel>
+                        <FormLabel>Nombre de Usuario</FormLabel>
                         <FormControl>
-                          <Input {...field} />
+                          <Input placeholder="Tu nombre de usuario" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+                  
                   <FormField
                     control={profileForm.control}
                     name="email"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Email</FormLabel>
+                        <FormLabel>Correo Electrónico</FormLabel>
                         <FormControl>
-                          <Input {...field} />
+                          <Input placeholder="correo@ejemplo.com" {...field} readOnly />
+                        </FormControl>
+                        <FormDescription>
+                          El correo electrónico no se puede cambiar.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={profileForm.control}
+                    name="nombre"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nombre Completo</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Tu nombre completo" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={profileForm.control}
-                      name="telefono"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Teléfono</FormLabel>
-                          <FormControl>
-                            <Input {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={profileForm.control}
-                      name="direccion"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Dirección</FormLabel>
-                          <FormControl>
-                            <Input {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  <div className="flex justify-end">
-                    <Button type="submit" className="bg-green-700 hover:bg-green-800" disabled={isUpdatingProfile}>
-                      {isUpdatingProfile ? "Guardando..." : "Guardar cambios"}
-                    </Button>
-                  </div>
+                  
+                  <FormField
+                    control={profileForm.control}
+                    name="telefono"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Teléfono</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Tu número de teléfono" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={profileForm.control}
+                    name="direccion"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Dirección</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Tu dirección" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <Button type="submit" disabled={isUpdatingProfile}>
+                    {isUpdatingProfile ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Actualizando...
+                      </>
+                    ) : (
+                      "Actualizar Perfil"
+                    )}
+                  </Button>
                 </form>
               </Form>
             </CardContent>
           </Card>
         </TabsContent>
-        <TabsContent value="security">
+        
+        <TabsContent value="password">
           <Card>
             <CardHeader>
               <CardTitle>Cambiar Contraseña</CardTitle>
-              <CardDescription>Actualiza tu contraseña de acceso</CardDescription>
+              <CardDescription>
+                Actualiza tu contraseña de acceso.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <Form {...passwordForm}>
@@ -253,46 +355,52 @@ export default function ProfilePage() {
                     name="currentPassword"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Contraseña actual</FormLabel>
+                        <FormLabel>Contraseña Actual</FormLabel>
                         <FormControl>
-                          <Input type="password" {...field} />
+                          <Input type="password" placeholder="••••••••" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+                  
                   <FormField
                     control={passwordForm.control}
-                    name="newPassword"
+                    name="password"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Nueva contraseña</FormLabel>
+                        <FormLabel>Nueva Contraseña</FormLabel>
                         <FormControl>
-                          <Input type="password" {...field} />
+                          <Input type="password" placeholder="••••••••" {...field} />
                         </FormControl>
-                        <FormDescription>La contraseña debe tener al menos 6 caracteres.</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+                  
                   <FormField
                     control={passwordForm.control}
                     name="confirmPassword"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Confirmar nueva contraseña</FormLabel>
+                        <FormLabel>Confirmar Nueva Contraseña</FormLabel>
                         <FormControl>
-                          <Input type="password" {...field} />
+                          <Input type="password" placeholder="••••••••" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  <div className="flex justify-end">
-                    <Button type="submit" className="bg-green-700 hover:bg-green-800" disabled={isUpdatingPassword}>
-                      {isUpdatingPassword ? "Actualizando..." : "Cambiar contraseña"}
-                    </Button>
-                  </div>
+                  
+                  <Button type="submit" disabled={isUpdatingPassword}>
+                    {isUpdatingPassword ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Actualizando...
+                      </>
+                    ) : (
+                      "Cambiar Contraseña"
+                    )}
+                  </Button>
                 </form>
               </Form>
             </CardContent>
@@ -300,5 +408,5 @@ export default function ProfilePage() {
         </TabsContent>
       </Tabs>
     </div>
-  )
+  );
 }
